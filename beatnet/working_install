@@ -1,0 +1,10 @@
+python -m venv venv
+source venv/bin/activate
+pip install BeatNet
+pip install librosa
+pip install pyaudio
+mkdir source
+git clone --recursive https://github.com/CPJKU/madmom.git source/
+python3 source/madmom/setup.py develop
+cp -r source/madmom venv/lib/python3.12/site-packages/
+
