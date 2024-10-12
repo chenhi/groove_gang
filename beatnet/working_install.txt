@@ -1,6 +1,6 @@
 python3 -m venv venv
 source venv/bin/activate
-pip install BeatNet librosa pyaudio
+pip install BeatNet librosa pyaudio simpleaudio
 git clone --recursive https://github.com/CPJKU/madmom.git source/madmom/
 cd source/madmom/
 python3 setup.py develop
