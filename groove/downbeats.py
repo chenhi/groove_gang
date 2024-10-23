@@ -32,13 +32,16 @@ def get_measures(file: str, process: Callable, ext="mp3"):
 
 
 
-# Gets the beat times for the processed measures using a beat finding function
-def get_beat_times(proc_measures, sr, beat_find: Callable, ext="mp3"):
-    beat_times = []
+# Gets the beat times frames and total frames for the processed measures using a beat finding function
+def get_beat_frames(proc_measures, sr, beat_find: Callable, ext="mp3"):
+    beat_frames = []
+    num_frames = []
     for i in range(len(proc_measures)):
-        beat_times.append(beat_find(proc_measures[i], sr))
+        beat_frames.append(beat_find(proc_measures[i], sr))
+        num_frames.append(proc_measures[i].shape[0])
 
-    return beat_times
+    return beat_frames, num_frames
+
 
 
 
