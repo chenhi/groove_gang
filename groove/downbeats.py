@@ -33,6 +33,7 @@ def get_measures(file: str, process: Callable, ext="mp3"):
 
 
 # Gets the beat times frames and total frames for the processed measures using a beat finding function
+# Note first input is a list
 def get_beat_frames(proc_measures, sr, beat_find: Callable, ext="mp3"):
     beat_frames = []
     num_frames = []
