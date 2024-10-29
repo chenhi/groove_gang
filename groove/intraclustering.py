@@ -62,6 +62,10 @@ def winnow_gm_components(data, start=10, confidence_limit=0.95):
         if (contains.sum(axis=1) >= data.shape[0]/10).prod().item() != 1:
             continue
         # Otherwise, we are done
-        return gm, i
+        return gm
         
-    return gm, i
+    return gm
+
+
+def get_primary_gaussian_clusters(data, max=10, confidence_limit=0.95):
+    return winnow_gm_components(data, start=max, confidence_limit=confidence_limit).means_
