@@ -8,7 +8,8 @@
 
 ## Code: 
 * groove/downbeats.py contains functions used to extract the downbeats from audio data, downbeats_demo.ipynb is a demo
-* intra_clustering.ipynb contains an attempt to do clustering to extract "primary" beat data from songs
+* groove/intraclustering.ipynb contains clustering functions used to extract "primary" beats from songs (needs a good embedding for good results)
+* Files in root folder beginning with demo_ are demos of the above
 
 ## Data:
 * beatnet_data.pkl is a dictionary containing BeatNet outputs for some songs
