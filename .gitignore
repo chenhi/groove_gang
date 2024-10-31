@@ -2,3 +2,4 @@ private/
 venv/
 beatnet/inputs
 beatnet/groove-midi
+groove_dataset/data
