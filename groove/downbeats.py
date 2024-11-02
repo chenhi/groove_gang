@@ -5,6 +5,18 @@ from scipy.signal import savgol_filter, find_peaks
 from typing import Callable
 
 
+def get_audio_data(file: str, process: Callable, ext="mp3"):
+    y, sr = librosa.load(f'beatnet/inputs/{file}.{ext}')
+    # Apply chosen processing
+    return y, process(y, sr), sr
+
+
+def get_beat_data(file: str):
+    # Get BeatNet output
+    with open("beatnet_data.pkl","rb") as f:
+        data = pkl.load(f)
+    return data[file]
+
 
 # Loads file audio and BeatNet data, slices into measures, processes and then returns
 def get_measures(file: str, process: Callable, ext="mp3"):
@@ -12,12 +24,11 @@ def get_measures(file: str, process: Callable, ext="mp3"):
     # Get BeatNet output
     with open("beatnet_data.pkl","rb") as f:
         data = pkl.load(f)
-    beat_data = data[file]
+    beat_data = get_beat_data(file)
+    
 
     # Get raw audio data
-    y, sr = librosa.load(f'beatnet/inputs/{file}.{ext}')
-    # Apply chosen processing
-    y_proc = process(y, sr)
+    y, y_proc, sr = get_audio_data(file, process, ext)
 
     # Cut into measures
     downbeats = beat_data[beat_data[:,1] == 1, 0]
@@ -29,7 +40,6 @@ def get_measures(file: str, process: Callable, ext="mp3"):
         proc_measures.append(y_proc[downbeat_frames[i]:downbeat_frames[i+1]])
 
     return raw_measures, proc_measures, sr
-
 
 
 # Gets the beat times frames and total frames for the processed measures using a beat finding function

@@ -41,8 +41,8 @@ def get_patches(gm, confidence, pts):
     return patches, np.stack(contains, axis=0)
 
 
-# Algorithm for determining the number of components according to our winnowing criteria: no overlaps, and each 95% confidence region should contain 10% of all data points
-def winnow_gm_components(data, start=10, confidence_limit=0.95):
+# Algorithm for determining the number of components according to our winnowing criteria: no more than 10% overlaps, and each 95% confidence region should contain 25% of all data points
+def winnow_gm_components(data, start=10, confidence_limit=0.95, overlap_allowance = 0.1, cluster_threshold = 0.25):
     for i in range(start, 0, -1):
         gm = GaussianMixture(n_components=i)
         gm.fit(data)
@@ -55,13 +55,14 @@ def winnow_gm_components(data, start=10, confidence_limit=0.95):
             contains.append(ellipse_contains_points(gm.means_[j], gm.covariances_[j], data, confidence=confidence_limit))
         contains = np.stack(contains)
 
-        # Check if there are any overlaps, if so, continue
-        if (contains.sum(axis=0) <= 1).prod().item() != 1:
+        # Check if 10% or more of data points are contained in overlaps
+        if (contains.sum(axis=0) > 1).sum().item() > data.shape[0] * overlap_allowance:
             continue
         # Check if any ellipses contain less than 10% of data points
-        if (contains.sum(axis=1) >= data.shape[0]/10).prod().item() != 1:
+        if (contains.sum(axis=1) >= data.shape[0] * cluster_threshold).prod().item() != 1:
             continue
         # Otherwise, we are done
+
         return gm
         
     return gm
