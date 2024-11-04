@@ -89,3 +89,11 @@ def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, c
 
 def get_primary_gaussian_clusters(data, max=10, confidence_limit=0.95):
     return winnow_gm_components(data, start=max, confidence_limit=confidence_limit).means_
+
+
+def find_closest_indices(means, data):
+    outs = []
+    for i in range(means.shape[0]):
+        distances = np.linalg.norm(means[i] - data, axis=1)
+        outs.append(distances.argmin(keepdims=True)[0])
+    return np.stack(outs)
