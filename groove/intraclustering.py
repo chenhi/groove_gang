@@ -39,7 +39,6 @@ def ellipse_contains_points(center, covariance, points, confidence=0.95):
 # Returns an list of patches, a Numpy array of containment data
 def get_patches(gm, confidence, pts, pca=None, how_reduce='top'):
     assert gm.means_.shape[0] <= 2 or type(pca) is sklearn.decomposition._pca.PCA
-
     patches = []
     contains = []
     for i in range(gm.means_.shape[0]):
