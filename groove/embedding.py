@@ -50,8 +50,7 @@ def bar_embedding(data,dbeats,bar_num,dimension,framerate,kernel=None, kernel_wi
     return sub_beat_data 
 
 
-def load_bar_embedding(file, process: Callable, ext="mp3"):
-
+def load_bar_embedding(file, divisions, weights, process: Callable, ext="mp3"):
     beat_data = groove.downbeats.get_beat_data(file)
     _, proc, sr = groove.downbeats.get_audio_data(file, process, ext=ext)
 
@@ -59,9 +58,8 @@ def load_bar_embedding(file, process: Callable, ext="mp3"):
     sub_beat_data = []
     for bar_num in range(1,db.shape[0]):
         p = []
-        for i in range(4, 5):
-            division=2**i
-            p.append(np.array(bar_embedding(proc/max(abs(proc)),db,bar_num=bar_num,dimension=division,framerate=sr,kernel_width=1/4)))
+        for i, division in enumerate(divisions):
+            p.append(np.array(bar_embedding(proc/max(abs(proc)),db,bar_num=bar_num,dimension=division,framerate=sr,kernel_width=1/4)) * weights[i])
         sub_beat_data.append(np.concatenate(p, axis=0))
 
     return np.stack(sub_beat_data, axis=0)
