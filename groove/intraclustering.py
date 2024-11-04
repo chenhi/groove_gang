@@ -1,10 +1,16 @@
 from matplotlib.patches import Ellipse
-import scipy, math
+import scipy, math, sklearn
 from sklearn.mixture import GaussianMixture, BayesianGaussianMixture
 import numpy as np
 
 # Get Matplotlib patches for various elliptical confidence regions
-def get_ellipse_patch(center, cov, confidence=0.95):
+# Only 2D plots - if dimension > 2, need to specify orthogonal components shape (num_components, vector) and mean shift
+def get_ellipse_patch(center, cov, components=None, shift=0, confidence=0.95):
+    if type(components) is np.ndarray:
+        proj = components.T @ np.linalg.inv(components @ components.T)
+        cov = proj.T @ cov @ proj
+        center = (center - shift) @ proj
+
     # Figure out number of stdevs for confidence
     scale = math.sqrt(scipy.stats.chi2.ppf(q=confidence, df=center.shape[0]))
     
@@ -14,7 +20,7 @@ def get_ellipse_patch(center, cov, confidence=0.95):
     if u[0,1] < 0:
         u[:,0] = -u[:,0]
     th = np.arccos(np.dot(np.array([1, 0]), u[:,0])) * 180 / np.pi
-    print(np.sqrt(np.linalg.det(cov)))
+    #print(np.sqrt(np.linalg.det(cov)))
     return Ellipse((center[0], center[1]), np.sqrt(s[0]) * scale * 2, np.sqrt(s[1])* scale * 2, angle=th, alpha=0.5, color='red')
 
 
@@ -29,12 +35,18 @@ def ellipse_contains_points(center, covariance, points, confidence=0.95):
     
 
 # Gets patches and containment data for a given fitted GaussianMixture object
+# If dimension > 2, need a PCA object to reduce dimensions to 2
 # Returns an list of patches, a Numpy array of containment data
-def get_patches(gm, confidence, pts):
+def get_patches(gm, confidence, pts, pca=None, how_reduce='top'):
+    assert gm.means_.shape[0] <= 2 or type(pca) is sklearn.decomposition._pca.PCA
+
     patches = []
     contains = []
     for i in range(gm.means_.shape[0]):
-        e = get_ellipse_patch(gm.means_[i], gm.covariances_[i], confidence=confidence)
+        if pca != None:
+            e = get_ellipse_patch(gm.means_[i], gm.covariances_[i], confidence=confidence, components=pca.components_[0:2], shift=pca.mean_)
+        else:
+            e = get_ellipse_patch(gm.means_[i], gm.covariances_[i], confidence=confidence)
         patches.append(e)
         contains.append(ellipse_contains_points(gm.means_[i], gm.covariances_[i], pts, confidence))
 
@@ -42,9 +54,10 @@ def get_patches(gm, confidence, pts):
 
 
 # Algorithm for determining the number of components according to our winnowing criteria: no more than 10% overlaps, and each 95% confidence region should contain 25% of all data points
-def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, cluster_threshold = 0.2, use_weights = False):
+def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, cluster_threshold = 0.2, use_weights = False, start = None):
     # Add 1 in case of rounding error
-    start = int(1 / cluster_threshold) + 1
+    if start == None:
+        start = int(1 / cluster_threshold) + 1
 
     for i in range(start, 0, -1):
         gm = GaussianMixture(n_components=i)
