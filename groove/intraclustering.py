@@ -53,7 +53,7 @@ def get_patches(gm, confidence, pts, pca=None, how_reduce='top'):
 
 
 # Algorithm for determining the number of components according to our winnowing criteria: no more than 10% overlaps, and each 95% confidence region should contain 20% of all data points
-def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, cluster_threshold = 0.2, use_weights = False, start = None):
+def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, cluster_threshold = 0.2, use_weights = False, start = None, verbose=False):
     # Add 1 in case of rounding error
     if start == None:
         start = 10 if cluster_threshold == 0. else min(int(1 / cluster_threshold) + 1, 10)
@@ -61,6 +61,9 @@ def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, c
     for i in range(start, 0, -1):
         gm = GaussianMixture(n_components=i)
         gm.fit(data)
+        if verbose:
+            print(f"Num components: {i}")
+
         # If i = 1, then we are done anyway, so break
         if i == 1:
             break
@@ -71,7 +74,9 @@ def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, c
         contains = np.stack(contains)
 
         # Check if 10% or more of data points are contained in overlaps
-        if (contains.sum(axis=0) > 1).sum().item() > data.shape[0] * overlap_allowance:
+        overlaps = (contains.sum(axis=0) > 1).sum().item()
+        if overlaps > data.shape[0] * overlap_allowance:
+            print(f"Failed because overlaps {overlaps/data.shape[0]} exceeded allowance {overlap_allowance}.")
             continue
         
         # If use_weights, check if any ellipses have weight under threshold
@@ -79,6 +84,7 @@ def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, c
             continue
         # If use_weights is off, then check if any ellipses contain less than 10% of data points
         if not use_weights and (contains.sum(axis=1) >= data.shape[0] * cluster_threshold).prod().item() != 1:
+            print(f"Failed because clusters beneath required coverage.")
             continue
         # Otherwise, we are done
 
