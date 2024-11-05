@@ -2,6 +2,7 @@ from matplotlib.patches import Ellipse
 import scipy, math, sklearn
 from sklearn.mixture import GaussianMixture, BayesianGaussianMixture
 import numpy as np
+from typing import Callable
 
 # Get Matplotlib patches for various elliptical confidence regions
 # Only 2D plots - if dimension > 2, need to specify orthogonal components shape (num_components, vector) and mean shift
@@ -53,7 +54,7 @@ def get_patches(gm, confidence, pts, pca=None, how_reduce='top'):
 
 
 # Algorithm for determining the number of components according to our winnowing criteria: no more than 10% overlaps, and each 95% confidence region should contain 20% of all data points
-def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, cluster_threshold = 0.2, use_weights = False, start = None, verbose=False):
+def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, cluster_threshold = 0.3, use_weights = False, start = None, verbose=False):
     # Add 1 in case of rounding error
     if start == None:
         start = 10 if cluster_threshold == 0. else min(int(1 / cluster_threshold) + 1, 10)
@@ -84,7 +85,8 @@ def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, c
             continue
         # If use_weights is off, then check if any ellipses contain less than 10% of data points
         if not use_weights and (contains.sum(axis=1) >= data.shape[0] * cluster_threshold).prod().item() != 1:
-            print(f"Failed because clusters beneath required coverage.")
+            if verbose:
+                print(f"Failed because clusters beneath required coverage.")
             continue
         # Otherwise, we are done
 
@@ -93,8 +95,13 @@ def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, c
     return gm
 
 
-def get_primary_gaussian_clusters(data, max=10, confidence_limit=0.95):
-    return winnow_gm_components(data, start=max, confidence_limit=confidence_limit).means_
+def get_primary_gaussian_mean(data, max=None, confidence_limit=0.80, how='top'):
+    if how == 'all':
+        return winnow_gm_components(data, start=max, confidence_limit=confidence_limit).means_
+    else:
+        gm = winnow_gm_components(data, start=max, confidence_limit=confidence_limit)
+        return gm.means_[gm.weights_.argmax(keepdims=True)[0]]
+
 
 
 def find_closest_indices(means, data):
