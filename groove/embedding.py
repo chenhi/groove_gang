@@ -8,7 +8,7 @@ import scipy, math
 # dbeats is something like bn[[bn[:,1] == 1, 0] where bn is output of beatnet
 # bar_num is the measure to process
 # dimension is the number of divisions of the bar
-def bar_embedding(data,dbeats,bar_num,dimension,framerate,kernel=None, kernel_width=None):
+def bar_embedding(data,dbeats,bar_num,dimension,framerate,kernel=None, kernel_width=None, square=True):
     assert bar_num < len(dbeats), 'bar_num must be smaller than the number of bars in the audio'
 
     time_interval = (dbeats[bar_num-1],dbeats[bar_num])
@@ -43,14 +43,14 @@ def bar_embedding(data,dbeats,bar_num,dimension,framerate,kernel=None, kernel_wi
             sub_data = data[start:end]
 
         #print(data.shape, sub_data.shape)
-
-        sub_data = sub_data**2
+        if square:
+            sub_data = sub_data**2
         # print(np.sum(sub_data),np.sum(kernel))
         sub_beat_data[i] = np.sum(kernel*(sub_data))
 
     return sub_beat_data 
 
-
+# divisions is list of bar subdivisions
 def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1/4):
     
     # Figure out the number of samples in a standard rescaled bar; make it a multiple of lcm of dimension
@@ -98,7 +98,7 @@ def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1
     return outputs
 
 
-def load_bar_embedding(file, divisions, weights, process: Callable, ext="mp3"):
+def load_bar_embedding(file, divisions, weights, process: Callable, ext="mp3", square=True):
     beat_data = groove.downbeats.get_beat_data(file)
     _, proc, sr = groove.downbeats.get_audio_data(file, process, ext=ext)
 
@@ -107,7 +107,7 @@ def load_bar_embedding(file, divisions, weights, process: Callable, ext="mp3"):
     for bar_num in range(1,db.shape[0]):
         p = []
         for i, division in enumerate(divisions):
-            p.append(np.array(bar_embedding(proc/max(abs(proc)),db,bar_num=bar_num,dimension=division,framerate=sr,kernel_width=1/4)) * weights[i])
+            p.append(np.array(bar_embedding(proc/max(abs(proc)), db, bar_num=bar_num, dimension=division, framerate=sr, kernel_width=1/4, square=square)) * weights[i])
         sub_beat_data.append(np.concatenate(p, axis=0))
 
     return np.stack(sub_beat_data, axis=0)
@@ -124,6 +124,6 @@ def load_bar_embedding_total(file, divisions, weights, process: Callable, ext="m
 
     if concatenate:
         return np.concatenate(embeds, axis=1)
-        
+
     
     return embeds
