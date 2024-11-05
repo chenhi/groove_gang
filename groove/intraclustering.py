@@ -52,11 +52,11 @@ def get_patches(gm, confidence, pts, pca=None, how_reduce='top'):
     return patches, np.stack(contains, axis=0)
 
 
-# Algorithm for determining the number of components according to our winnowing criteria: no more than 10% overlaps, and each 95% confidence region should contain 25% of all data points
+# Algorithm for determining the number of components according to our winnowing criteria: no more than 10% overlaps, and each 95% confidence region should contain 20% of all data points
 def winnow_gm_components(data, confidence_limit=0.95, overlap_allowance = 0.1, cluster_threshold = 0.2, use_weights = False, start = None):
     # Add 1 in case of rounding error
     if start == None:
-        start = int(1 / cluster_threshold) + 1
+        start = 10 if cluster_threshold == 0. else min(int(1 / cluster_threshold) + 1, 10)
 
     for i in range(start, 0, -1):
         gm = GaussianMixture(n_components=i)
