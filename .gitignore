@@ -1,6 +1,7 @@
 private/
 venv/
-beatnet/inputs
-beatnet/groove-midi
-beatnet/source
+venv_bn/
+inputs/
+groove-midi/
+source/
 groove_dataset/data
