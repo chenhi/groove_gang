@@ -50,11 +50,43 @@ def bar_embedding(data,dbeats,bar_num,dimension,framerate,kernel=None, kernel_wi
 
     return sub_beat_data 
 
+
+# Resamples bars so they all have the same number of samples
+# Number of samples is the maximum number which is a multiple of divisor
+# Returns resampled data and number of samples per bar
+def uniformize_bars(data, dbeats, sr, divisor = 1):
+    n_bars = dbeats.shape[0]
+    if n_bars < 2:
+        min_bar_samples = data.shape[0]
+    else:
+        min_bar_samples = int((dbeats[1:] - dbeats[:-1]).min().item() * sr)
+    # Force an extra multiple of two because we subdivide by half
+    assert divisor < min_bar_samples, f'lcm {divisor} must be smaller than smallest bar length {min_bar_samples}'
+    bar_samples = (min_bar_samples // divisor) * divisor
+
+    resampled_data = np.zeros(0)
+    # Resample each bar to be uniform
+    for i in range(dbeats.shape[0]):
+        start = int(dbeats[i] * sr)
+        if i < dbeats.shape[0] - 1:
+            end = int(dbeats[i+1] * sr)
+        else:
+            end = data.shape[0]
+        resampled_data = np.concatenate([resampled_data, scipy.signal.resample(data[start:end], bar_samples)], axis=0)
+
+    return resampled_data, bar_samples
+
+
 # divisions is list of bar subdivisions
 def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1/4):
     
     # Figure out the number of samples in a standard rescaled bar; make it a multiple of lcm of dimension
     n_bars = dbeats.shape[0]
+    if n_bars == 0:
+        print("NO BARS??!??!")
+    if n_bars == 1:
+        print("ONLY ONE BAR???")
+
     min_bar_samples = int((dbeats[1:] - dbeats[:-1]).min().item() * sr)
     # Force an extra multiple of two because we subdivide by half
     dim_lcm = math.lcm(*list(divisions)) * 2
@@ -71,6 +103,7 @@ def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1
             end = data.shape[0]
         resampled_data = np.concatenate([resampled_data, scipy.signal.resample(data[start:end], new_samples)], axis=0)
 
+    #resampled_data, new_samples = uniformize_bars(data, dbeats, sr, dim_lcm)
 
     # Kernels for each division
     lens = []

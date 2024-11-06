@@ -59,6 +59,9 @@ def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, c
     if start == None:
         start = 10 if cluster_threshold == 0. else min(int(1 / cluster_threshold) + 1, 10)
 
+    if start > data.shape[0]:
+        start = data.shape[0]
+
     for i in range(start, 0, -1):
         gm = GaussianMixture(n_components=i)
         gm.fit(data)
@@ -77,7 +80,8 @@ def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, c
         # Check if 10% or more of data points are contained in overlaps
         overlaps = (contains.sum(axis=0) > 1).sum().item()
         if overlaps > data.shape[0] * overlap_allowance:
-            print(f"Failed because overlaps {overlaps/data.shape[0]} exceeded allowance {overlap_allowance}.")
+            if verbose:
+                print(f"Failed because overlaps {overlaps/data.shape[0]} exceeded allowance {overlap_allowance}.")
             continue
         
         # If use_weights, check if any ellipses have weight under threshold

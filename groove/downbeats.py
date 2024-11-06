@@ -6,7 +6,7 @@ from typing import Callable
 
 
 def get_audio_data(file: str, process: Callable, ext="mp3"):
-    y, sr = librosa.load(f'beatnet/inputs/{file}.{ext}')
+    y, sr = librosa.load(f'inputs/{file}.{ext}')
     # Apply chosen processing
     return y, process(y, sr), sr
 
