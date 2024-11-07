@@ -13,7 +13,7 @@ def get_audio_data(file: str, process: Callable, ext="mp3"):
 
 def get_beat_data(file: str):
     # Get BeatNet output
-    with open("beatnet_data.pkl","rb") as f:
+    with open("data/beatnet_data.pkl","rb") as f:
         data = pkl.load(f)
     return data[file]
 
@@ -22,10 +22,7 @@ def get_beat_data(file: str):
 def get_measures(file: str, process: Callable, ext="mp3"):
 
     # Get BeatNet output
-    with open("beatnet_data.pkl","rb") as f:
-        data = pkl.load(f)
     beat_data = get_beat_data(file)
-    
 
     # Get raw audio data
     y, y_proc, sr = get_audio_data(file, process, ext)
