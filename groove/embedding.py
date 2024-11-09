@@ -51,6 +51,23 @@ def bar_embedding(data,dbeats,bar_num,dimension,framerate,kernel=None, kernel_wi
     return sub_beat_data 
 
 
+
+
+def load_bar_embedding(file, divisions, weights, process: Callable, ext="mp3", square=True):
+    beat_data = groove.downbeats.get_beat_data(file)
+    _, proc, sr = groove.downbeats.get_audio_data(file, process, ext=ext)
+
+    db = beat_data[beat_data[:,1] == 1, 0]
+    sub_beat_data = []
+    for bar_num in range(1,db.shape[0]):
+        p = []
+        for i, division in enumerate(divisions):
+            p.append(np.array(bar_embedding(proc/max(abs(proc)), db, bar_num=bar_num, dimension=division, framerate=sr, kernel_width=1/4, square=square)) * weights[i])
+        sub_beat_data.append(np.concatenate(p, axis=0))
+
+    return np.stack(sub_beat_data, axis=0)
+
+
 # Resamples bars so they all have the same number of samples
 # Number of samples is the maximum number which is a multiple of divisor
 # Returns resampled data and number of samples per bar
@@ -78,6 +95,8 @@ def uniformize_bars(data, dbeats, sr, divisor = 1):
 
 
 # divisions is list of bar subdivisions
+# If kernel width is in (0, 1) then interpret it as a fraction of interval
+# If kernel width is >= 1 then interpret it as a time in milliseconds
 def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1/4):
     
     # Figure out the number of samples in a standard rescaled bar; make it a multiple of lcm of dimension
@@ -112,7 +131,12 @@ def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1
         sub_beat_interval = new_samples // (d * 2)
         lens.append(sub_beat_interval)
 
-        kernel_sigma = kernel_width * sub_beat_interval
+        assert kernel_width > 0
+        if kernel_width < 1:
+            kernel_sigma = kernel_width * sub_beat_interval
+        else:
+            kernel_sigma = sr * kernel_width / 1000
+
         kernel = np.exp(-np.arange(-sub_beat_interval,sub_beat_interval,1)**2/(2*kernel_sigma**2))
         kernels.append(kernel / np.sum(kernel))
 
@@ -131,27 +155,13 @@ def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1
     return outputs
 
 
-def load_bar_embedding(file, divisions, weights, process: Callable, ext="mp3", square=True):
-    beat_data = groove.downbeats.get_beat_data(file)
-    _, proc, sr = groove.downbeats.get_audio_data(file, process, ext=ext)
-
-    db = beat_data[beat_data[:,1] == 1, 0]
-    sub_beat_data = []
-    for bar_num in range(1,db.shape[0]):
-        p = []
-        for i, division in enumerate(divisions):
-            p.append(np.array(bar_embedding(proc/max(abs(proc)), db, bar_num=bar_num, dimension=division, framerate=sr, kernel_width=1/4, square=square)) * weights[i])
-        sub_beat_data.append(np.concatenate(p, axis=0))
-
-    return np.stack(sub_beat_data, axis=0)
-
-def load_bar_embedding_total(file, divisions, weights, process: Callable, ext="mp3", concatenate=True):
+def load_bar_embedding_total(file, divisions, weights, process: Callable, kernel_width=1/4, ext="mp3", concatenate=True):
     beat_data = groove.downbeats.get_beat_data(file)
     _, proc, sr = groove.downbeats.get_audio_data(file, process, ext=ext)
 
     db = beat_data[beat_data[:,1] == 1, 0]
 
-    embeds = bar_embedding_total(proc/max(abs(proc)), db, divisions, sr)
+    embeds = bar_embedding_total(proc/max(abs(proc)), db, divisions, sr, kernel_width=1/4)
     for i, e in enumerate(embeds):
         embeds[i] = embeds[i] * weights[i]
 
