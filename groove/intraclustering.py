@@ -22,7 +22,7 @@ def get_ellipse_patch(center, cov, components=None, shift=0, confidence=0.95):
         u[:,0] = -u[:,0]
     th = np.arccos(np.dot(np.array([1, 0]), u[:,0])) * 180 / np.pi
     #print(np.sqrt(np.linalg.det(cov)))
-    return Ellipse((center[0], center[1]), np.sqrt(s[0]) * scale * 2, np.sqrt(s[1])* scale * 2, angle=th, alpha=0.5, color='red')
+    return Ellipse((center[0], center[1]), np.sqrt(s[0]) * scale * 2, np.sqrt(s[1])* scale * 2, angle=th, alpha=0.5, color='grey')
 
 
 
@@ -78,19 +78,20 @@ def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, c
         contains = np.stack(contains)
 
         # Check if 10% or more of data points are contained in overlaps
-        overlaps = (contains.sum(axis=0) > 1).sum().item()
-        if overlaps > data.shape[0] * overlap_allowance:
+        overlaps = (contains.sum(axis=0) > 1).sum().item() / data.shape[0]
+        if overlaps > overlap_allowance:
             if verbose:
-                print(f"Failed because overlaps {overlaps/data.shape[0]} exceeded allowance {overlap_allowance}.")
+                print(f"Failed because overlaps {overlaps} exceeded allowance {overlap_allowance}.")
             continue
         
         # If use_weights, check if any ellipses have weight under threshold
         if use_weights and (gm.means_ >= cluster_threshold).prod().item() != 1:
             continue
         # If use_weights is off, then check if any ellipses contain less than 10% of data points
-        if not use_weights and (contains.sum(axis=1) >= data.shape[0] * cluster_threshold).prod().item() != 1:
+        containment = contains.sum(axis=1) / data.shape[0]
+        if not use_weights and (containment >= cluster_threshold).prod().item() != 1:
             if verbose:
-                print(f"Failed because clusters beneath required coverage.")
+                print(f"Failed because some clusters {containment} beneath required coverage {cluster_threshold}.")
             continue
         # Otherwise, we are done
 
