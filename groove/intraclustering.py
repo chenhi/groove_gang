@@ -75,13 +75,15 @@ def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, c
         contains = []
         for j in range(i):
             contains.append(ellipse_contains_points(gm.means_[j], gm.covariances_[j], data, confidence=confidence_limit))
-        contains = np.stack(contains)
+        contains = np.stack(contains)    
 
         # Check if 10% or more of data points are contained in overlaps
         overlaps = (contains.sum(axis=0) > 1).sum().item() / data.shape[0]
+        if verbose:
+            print(f"Overlaps {overlaps}")
         if overlaps > overlap_allowance:
             if verbose:
-                print(f"Failed because overlaps {overlaps} exceeded allowance {overlap_allowance}.")
+                print(f"Failed because overlaps exceeded allowance {overlap_allowance}.")
             continue
         
         # If use_weights, check if any ellipses have weight under threshold
@@ -89,9 +91,11 @@ def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, c
             continue
         # If use_weights is off, then check if any ellipses contain less than 10% of data points
         containment = contains.sum(axis=1) / data.shape[0]
+        if verbose:
+            print(f"Containment {containment}")
         if not use_weights and (containment >= cluster_threshold).prod().item() != 1:
             if verbose:
-                print(f"Failed because some clusters {containment} beneath required coverage {cluster_threshold}.")
+                print(f"Failed because some clusters beneath required coverage {cluster_threshold}.")
             continue
         # Otherwise, we are done
 
