@@ -3,6 +3,7 @@ import scipy, math, sklearn
 from sklearn.mixture import GaussianMixture, BayesianGaussianMixture
 import numpy as np
 from typing import Callable
+import matplotlib.pyplot as plt
 
 # Get Matplotlib patches for various elliptical confidence regions
 # Only 2D plots - if dimension > 2, need to specify orthogonal components shape (num_components, vector) and mean shift
@@ -39,7 +40,7 @@ def ellipse_contains_points(center, covariance, points, confidence=0.95):
 # If dimension > 2, need a PCA object to reduce dimensions to 2
 # Returns an list of patches, a Numpy array of containment data
 def get_patches(gm, confidence, pts, pca=None, how_reduce='top'):
-    assert gm.means_.shape[0] <= 2 or type(pca) is sklearn.decomposition._pca.PCA
+    assert gm.means_[0].flatten().shape[0] <= 2 or type(pca) is sklearn.decomposition._pca.PCA
     patches = []
     contains = []
     for i in range(gm.means_.shape[0]):
@@ -54,7 +55,7 @@ def get_patches(gm, confidence, pts, pca=None, how_reduce='top'):
 
 
 # Algorithm for determining the number of components according to our winnowing criteria: no more than 10% overlaps, and each 95% confidence region should contain 20% of all data points
-def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, cluster_threshold = 0.3, use_weights = False, start = None, verbose=False):
+def winnow_gm_components(data, simulations_per_level=3, confidence_limit=0.80, overlap_allowance = 0.1, cluster_threshold = 0.3, use_weights = False, start = None, verbose=False):
     # Add 1 in case of rounding error
     if start == None:
         start = 10 if cluster_threshold == 0. else min(int(1 / cluster_threshold) + 1, 10)
@@ -63,10 +64,18 @@ def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, c
         start = data.shape[0]
 
     for i in range(start, 0, -1):
-        gm = GaussianMixture(n_components=i)
-        gm.fit(data)
-        if verbose:
-            print(f"Num components: {i}")
+        sims = []
+        scores = []
+        for _ in range(simulations_per_level):
+            gm = GaussianMixture(n_components=i)
+            gm.fit(data)
+            sims.append(gm)
+            scores.append(gm.score(data))
+            if verbose:
+                print(f"Score: {scores[-1]}")
+                print(f"Num components: {i}")
+        best_index = np.array(scores).argmax()
+        gm = sims[best_index]
 
         # If i = 1, then we are done anyway, so break
         if i == 1:
@@ -102,6 +111,47 @@ def winnow_gm_components(data, confidence_limit=0.80, overlap_allowance = 0.1, c
         return gm
         
     return gm
+
+
+# A problem with using BIC here is the high dimensional space makes the "correction" dominate the log likelihood
+def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, verbose=False):
+    
+    gms = []
+    scores = []
+    for i in range(max_clusters):
+        level_gm = []
+        level_score = []
+        for _ in range(simulations_per_level):
+            gm = GaussianMixture(n_components=i+1)
+            gm.fit(data)
+            level_gm.append(gm)
+            level_score.append(gm.score(data))
+            if verbose:
+                print(f"Num components: {i+1}")
+                print(f"Converged? {gm.converged_}")
+                print(f"Log-likelihood: {level_score[-1]}")
+        level_score = np.array(level_score)
+        best_index = level_score.argmax()
+        if verbose:
+            print(f"BIC: {level_score}, selecting index {best_index}")
+        gms.append(level_gm[best_index])
+        scores.append(level_score[best_index])
+
+    scores = np.array(scores)
+    #smoothed = np.polyfit(np.arange(max_clusters), scores, 3)
+    #smoothed = scipy.signal.savgol_filter(scores, 4, 3)
+    #smoothed_diff2 = scipy.signal.savgol_filter(scores, 4, 3, 2)
+    smoothed = np.polyfit(np.arange(max_clusters), scores, 3)
+    best_index = smoothed[1]/smoothed[0]
+    print(best_index)
+    best_index = int(best_index)
+
+#    best_index = (scores < 0).argmax() - 1 + 2
+    if verbose:
+        print(f"Final scores: {scores}, selecting index {best_index}")
+        plt.plot(np.arange(max_clusters) + 1, scores)
+    
+    return gms[best_index]
 
 
 def get_primary_gaussian_mean(data, max=None, confidence_limit=0.80, how='top'):
