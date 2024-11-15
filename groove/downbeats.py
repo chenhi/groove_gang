@@ -17,6 +17,13 @@ def get_beat_data(file: str):
         data = pkl.load(f)
     return data[file]
 
+# Returns times of downbeats
+def beat_data_to_downbeats(beat_data):
+    return beat_data[beat_data[:,1] == 1, 0]
+
+def get_downbeats(file: str):
+    return beat_data_to_downbeats(get_beat_data(file))
+
 
 # Loads file audio and BeatNet data, slices into measures, processes and then returns
 def get_measures(file: str, process: Callable, ext="mp3"):
@@ -28,8 +35,7 @@ def get_measures(file: str, process: Callable, ext="mp3"):
     y, y_proc, sr = get_audio_data(file, process, ext)
 
     # Cut into measures
-    downbeats = beat_data[beat_data[:,1] == 1, 0]
-    downbeat_frames = (downbeats * sr).astype(int)
+    downbeat_frames = (beat_data_to_downbeats(beat_data) * sr).astype(int)
     raw_measures = []
     proc_measures = []
     for i in range(0, downbeat_frames.shape[0] - 1):

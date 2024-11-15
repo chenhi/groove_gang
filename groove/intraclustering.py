@@ -141,14 +141,16 @@ def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, ve
     #smoothed = np.polyfit(np.arange(max_clusters), scores, 3)
     #smoothed = scipy.signal.savgol_filter(scores, 4, 3)
     #smoothed_diff2 = scipy.signal.savgol_filter(scores, 4, 3, 2)
-    smoothed = np.polyfit(np.arange(max_clusters), scores, 3)
-    best_index = smoothed[1]/smoothed[0]
-    print(best_index)
-    best_index = int(best_index)
-
-#    best_index = (scores < 0).argmax() - 1 + 2
+    #smoothed = np.polyfit(np.arange(max_clusters), scores, 3)
+    #best_index = smoothed[1]/smoothed[0]
+    #print(best_index)
+    #best_index = int(best_index)
+    # TODO There doesn't seem to be a good systematic way to choose the best one?
+    scoresdiff = scores[1:] - scores[:-1]
+    scoresdiff2 = scoresdiff[1:] - scoresdiff[:-1]
+    best_index = (scoresdiff2 < 0).argmax() + 2
     if verbose:
-        print(f"Final scores: {scores}, selecting index {best_index}")
+        print(f"Final scores: {scores}, selecting {best_index + 1} components")
         plt.plot(np.arange(max_clusters) + 1, scores)
     
     return gms[best_index]

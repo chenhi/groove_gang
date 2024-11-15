@@ -3,7 +3,23 @@ import groove.downbeats
 import numpy as np
 from typing import Callable
 import scipy, math
-from scipy.signal import butter, lfilter
+from scipy.signal import butter, lfilter, savgol_filter
+import librosa
+
+
+# Processing functions
+def smooth_power(y, sr):
+    power_db = y**2
+    return savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=2, deriv=0, mode='constant')
+
+def log_smooth_power(y, sr):
+    power_db = y**2
+    return np.log10(.0001 + savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=2, deriv=0,mode='constant'))
+
+def smooth_power2(y, sr):
+    power_db = y**2
+    d2 = savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=3, deriv=2, mode='constant') ** 2
+    return d2/d2.max()
 
 
 def butter_lopass(cutoff, fs, order=5):
@@ -151,6 +167,10 @@ def get_freq_segmented_powers(samples, framerate, locut=200, midrange=[400,5000]
     return list(map(lambda s: groove.downbeats.smooth_power(s, framerate), 
                                         [lo_samples, mid_samples, hi_samples]))
 
+
+def get_freq_segmented_powers_stacked(samples, framerate, locut=200, midrange=[400,5000], hicut=5000, axis=0):
+    return np.stack(get_freq_segmented_powers(samples, framerate, locut, midrange, hicut), axis=axis)
+
 def load_bar_embedding(file, divisions, weights, process: Callable, ext="mp3", square=True):
     beat_data = groove.downbeats.get_beat_data(file)
     _, proc, sr = groove.downbeats.get_audio_data(file, process, ext=ext)
@@ -186,60 +206,59 @@ def load_bar_embedding_freq(file, divisions, weights,
 # Resamples bars so they all have the same number of samples
 # Number of samples is the maximum number which is a multiple of divisor
 # Returns resampled data and number of samples per bar
-def uniformize_bars(data, dbeats, sr, divisor = 1):
+def uniformize_bars(data, dbeats, sr, divisor = 1, axis=-1):
+
+    if axis != -1:
+        data = np.moveaxis(data, axis, -1)
+
     n_bars = dbeats.shape[0]
     if n_bars < 2:
-        min_bar_samples = data.shape[0]
+        min_bar_samples = data.shape[-1]
     else:
         min_bar_samples = int((dbeats[1:] - dbeats[:-1]).min().item() * sr)
     # Force an extra multiple of two because we subdivide by half
     assert divisor < min_bar_samples, f'lcm {divisor} must be smaller than smallest bar length {min_bar_samples}'
     bar_samples = (min_bar_samples // divisor) * divisor
 
-    resampled_data = np.zeros(0)
+    resampled_data = np.zeros(data.shape[:-1] + (0,))
     # Resample each bar to be uniform
     for i in range(dbeats.shape[0]):
         start = int(dbeats[i] * sr)
         if i < dbeats.shape[0] - 1:
             end = int(dbeats[i+1] * sr)
         else:
-            end = data.shape[0]
-        resampled_data = np.concatenate([resampled_data, scipy.signal.resample(data[start:end], bar_samples)], axis=0)
+            end = data.shape[-1]
+        resampled_data = np.concatenate([resampled_data, scipy.signal.resample(data[..., start:end], bar_samples, axis=-1)], axis=-1)
+
+    if axis != -1:
+        resampled_data = np.moveaxis(resampled_data, -1, axis)
 
     return resampled_data, bar_samples
 
 
+def segmented_smooth_power(y, sr):
+    return smooth_power(get_freq_segmented_powers_stacked(y, sr), sr)
+
 # divisions is list of bar subdivisions
 # If kernel width is in (0, 1) then interpret it as a fraction of interval
 # If kernel width is >= 1 then interpret it as a time in milliseconds
-def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1/4):
+# axis says where the time axis is, but output will ALWAYS put in shape (measures/time axis, divisions axis, ...)
+def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1/4, axis=-1):
     
-    # Figure out the number of samples in a standard rescaled bar; make it a multiple of lcm of dimension
-    n_bars = dbeats.shape[0]
-    if n_bars == 0:
-        print("NO BARS??!??!")
-    if n_bars == 1:
-        print("ONLY ONE BAR???")
+    if axis != -1:
+        data = np.moveaxis(data, axis, -1)
 
-    min_bar_samples = int((dbeats[1:] - dbeats[:-1]).min().item() * sr)
-    # Force an extra multiple of two because we subdivide by half
+    # Shape of resampled_data: (N, )
     dim_lcm = math.lcm(*list(divisions)) * 2
-    assert dim_lcm < min_bar_samples, f'lcm {dim_lcm} must be smaller than smallest bar length {min_bar_samples}'
-    new_samples = (min_bar_samples // dim_lcm) * dim_lcm
+    resampled_data, new_samples = uniformize_bars(data, dbeats, sr, dim_lcm)
+
+    # Shape of processed_resampled_data: (d, N)
+    #processed_resampled_data = process(resampled_data, sr)
     
-    resampled_data = np.zeros(0)
-    # Resample each bar to be uniform
-    for i in range(dbeats.shape[0]):
-        start = int(dbeats[i] * sr)
-        if i < dbeats.shape[0] - 1:
-            end = int(dbeats[i+1] * sr)
-        else:
-            end = data.shape[0]
-        resampled_data = np.concatenate([resampled_data, scipy.signal.resample(data[start:end], new_samples)], axis=0)
-
-    #resampled_data, new_samples = uniformize_bars(data, dbeats, sr, dim_lcm)
-
-    # Kernels for each division
+    # Put the time dimension at the end
+    data_shape = resampled_data.shape[:-1]
+    
+    # Make kernels for each division
     lens = []
     kernels = []
     for d in divisions:
@@ -255,32 +274,37 @@ def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1
         kernel = np.exp(-np.arange(-sub_beat_interval,sub_beat_interval,1)**2/(2*kernel_sigma**2))
         kernels.append(kernel / np.sum(kernel))
 
-    outputs = [np.zeros(0) for _ in divisions]
+    outputs = [np.zeros(data_shape + (0,)) for _ in divisions]
     # Handle the first bar (edge case, half-cut off)
     for i, d in enumerate(divisions):
-        outputs[i] = np.append(outputs[i], (kernels[i][-lens[i]:] * resampled_data[0:lens[i]]).sum())
+        outputs[i] = np.append(outputs[i], (kernels[i][-lens[i]:] * resampled_data[..., 0:lens[i]]).sum(axis=-1).reshape(data_shape + (1,)), axis=-1)
         
     # Reshape the rest and apply kernel
     for i, d in enumerate(divisions):
-        divided_data = resampled_data[lens[i]:-lens[i]].reshape(-1, 2 * lens[i])
-        outputs[i] = np.append(outputs[i], (divided_data * kernels[i]).sum(axis=1))
+        divided_data = resampled_data[..., lens[i]:-lens[i]].reshape(data_shape + (-1, 2 * lens[i]))
+        outputs[i] = np.append(outputs[i], (divided_data * kernels[i]).sum(axis=-1), axis=-1)
         # Reshape the outputs to group by bar
-        outputs[i] = outputs[i].reshape((-1, d))
+        outputs[i] = outputs[i].reshape(data_shape + (-1, d))
         
-    return outputs
+
+    # Do a final reshaping so that time/measure and division axes are at the beginning
+    return [np.moveaxis(out, [-2, -1], [0, 1]) for out in outputs]
 
 
-def load_bar_embedding_total(file, divisions, weights, process: Callable, kernel_width=1/4, ext="mp3", concatenate=True):
-    beat_data = groove.downbeats.get_beat_data(file)
-    _, proc, sr = groove.downbeats.get_audio_data(file, process, ext=ext)
+# process takes a shape (N, ) tensor and returns a (M, ...) shape tensor where N, M are the number of input and output frames
+def load_bar_embedding_total(file, divisions, weights, process: Callable = segmented_smooth_power, kernel_width=1/4, ext="mp3", concatenate=True):
+    y, sr = librosa.load(f'inputs/{file}.{ext}')
+    proc = process(y, sr)/max(abs(y))
+    db = groove.downbeats.get_downbeats(file)
+    
+    embeds = bar_embedding_total(proc, db, divisions, sr, kernel_width=kernel_width)
 
-    db = beat_data[beat_data[:,1] == 1, 0]
-
-    embeds = bar_embedding_total(proc/max(abs(proc)), db, divisions, sr, kernel_width=1/4)
-    for i, e in enumerate(embeds):
+    for i  in range(len(embeds)):
         embeds[i] = embeds[i] * weights[i]
 
+    # Concatenate also means flatten
     if concatenate:
+        embeds = [e.reshape(-1, e.shape[-1]) for e in embeds]
         return np.concatenate(embeds, axis=1)
 
     
