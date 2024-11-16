@@ -11,9 +11,9 @@ def get_audio_data(file: str, process: Callable, ext="mp3"):
     return y, process(y, sr), sr
 
 
-def get_beat_data(file: str):
+def get_beat_data(file: str, database='data/beatnet_data.pkl'):
     # Get BeatNet output
-    with open("data/beatnet_data.pkl","rb") as f:
+    with open(database,"rb") as f:
         data = pkl.load(f)
     return data[file]
 
@@ -21,8 +21,8 @@ def get_beat_data(file: str):
 def beat_data_to_downbeats(beat_data):
     return beat_data[beat_data[:,1] == 1, 0]
 
-def get_downbeats(file: str):
-    return beat_data_to_downbeats(get_beat_data(file))
+def get_downbeats(file: str, database='data/beatnet_data.pkl'):
+    return beat_data_to_downbeats(get_beat_data(file, database))
 
 
 # Loads file audio and BeatNet data, slices into measures, processes and then returns

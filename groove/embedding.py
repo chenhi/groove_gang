@@ -8,9 +8,9 @@ import librosa
 
 
 # Processing functions
-def smooth_power(y, sr):
+def smooth_power(y, sr, axis=-1):
     power_db = y**2
-    return savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=2, deriv=0, mode='constant')
+    return savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=2, deriv=0, mode='constant', axis=axis)
 
 def log_smooth_power(y, sr):
     power_db = y**2
@@ -236,8 +236,15 @@ def uniformize_bars(data, dbeats, sr, divisor = 1, axis=-1):
     return resampled_data, bar_samples
 
 
+
+def get_freq_segmented(samples, framerate, locut=200, midrange=[400,5000], hicut=5000):
+    lo_samples = butter_lowpass_filter(samples, locut, framerate)
+    mid_samples = butter_bandpass_filter(samples, *midrange, framerate)
+    hi_samples = butter_hipass_filter(samples, hicut, framerate)
+    return np.concatenate([lo_samples, mid_samples, hi_samples], axis=0)
+
 def segmented_smooth_power(y, sr):
-    return smooth_power(get_freq_segmented_powers_stacked(y, sr), sr)
+    return smooth_power(get_freq_segmented(y, sr), sr)
 
 # divisions is list of bar subdivisions
 # If kernel width is in (0, 1) then interpret it as a fraction of interval
@@ -294,7 +301,8 @@ def bar_embedding_total(data, dbeats, divisions, sr, kernel=None, kernel_width=1
 # process takes a shape (N, ) tensor and returns a (M, ...) shape tensor where N, M are the number of input and output frames
 def load_bar_embedding_total(file, divisions, weights, process: Callable = segmented_smooth_power, kernel_width=1/4, ext="mp3", concatenate=True):
     y, sr = librosa.load(f'inputs/{file}.{ext}')
-    proc = process(y, sr)/max(abs(y))
+    proc = process(y, sr)
+    #normalized_proc = proc / np.abs(proc).max(axis=-1)[..., None]
     db = groove.downbeats.get_downbeats(file)
     
     embeds = bar_embedding_total(proc, db, divisions, sr, kernel_width=kernel_width)
@@ -304,7 +312,7 @@ def load_bar_embedding_total(file, divisions, weights, process: Callable = segme
 
     # Concatenate also means flatten
     if concatenate:
-        embeds = [e.reshape(-1, e.shape[-1]) for e in embeds]
+        embeds = [e.reshape(e.shape[0], -1) for e in embeds]
         return np.concatenate(embeds, axis=1)
 
     
