@@ -1,9 +1,8 @@
 from matplotlib.patches import Ellipse
 import scipy, math, sklearn
-from sklearn.mixture import GaussianMixture, BayesianGaussianMixture
+from sklearn.mixture import GaussianMixture
 from sklearn.decomposition import PCA
 import numpy as np
-from typing import Callable
 import matplotlib.pyplot as plt
 
 # Get Matplotlib patches for various elliptical confidence regions

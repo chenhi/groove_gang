@@ -1,7 +1,7 @@
 import pickle as pkl
 import librosa
 import numpy as np
-from scipy.signal import savgol_filter, find_peaks
+from scipy.signal import find_peaks
 from typing import Callable
 
 
