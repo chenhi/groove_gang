@@ -116,6 +116,9 @@ def winnow_gm_components(data, simulations_per_level=3, confidence_limit=0.80, o
 
 def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, verbose=False):
     
+    # Maximum clusters cannot exceed number of samples
+    max_clusters = min(max_clusters, data.shape[0])
+
     # First, do PCA to reduce to 95% of explained variance
     n_features = min(data.shape[0], data.shape[1])
     total_pca = PCA(n_components=n_features)
