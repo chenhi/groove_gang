@@ -1,6 +1,7 @@
 from matplotlib.patches import Ellipse
 import scipy, math, sklearn
 from sklearn.mixture import GaussianMixture, BayesianGaussianMixture
+from sklearn.decomposition import PCA
 import numpy as np
 from typing import Callable
 import matplotlib.pyplot as plt
@@ -113,19 +114,35 @@ def winnow_gm_components(data, simulations_per_level=3, confidence_limit=0.80, o
     return gm
 
 
-# A problem with using BIC here is the high dimensional space makes the "correction" dominate the log likelihood
 def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, verbose=False):
     
+    # First, do PCA to reduce to 95% of explained variance
+    n_features = min(data.shape[0], data.shape[1])
+    total_pca = PCA(n_components=n_features)
+    total_pca.fit(data)
+    if verbose:
+        _, axs = plt.subplots(figsize=(18, 8), nrows=2, ncols=1)
+        axs[0].plot(range(1, n_features+1), total_pca.explained_variance_)
+        axs[1].plot(range(1, n_features+1), np.cumsum(total_pca.explained_variance_ratio_))
+
+    pca_cutoff = (np.cumsum(total_pca.explained_variance_ratio_) > .95).argmax() + 1
+
+    pca = PCA(n_components=pca_cutoff)
+    pca.fit(data)
+    red_data = pca.transform(data)
+
+
     gms = []
     scores = []
+    bics = []
     for i in range(max_clusters):
         level_gm = []
         level_score = []
         for _ in range(simulations_per_level):
             gm = GaussianMixture(n_components=i+1)
-            gm.fit(data)
+            gm.fit(red_data)
             level_gm.append(gm)
-            level_score.append(gm.score(data))
+            level_score.append(gm.score(red_data))
             if verbose:
                 print(f"Num components: {i+1}")
                 print(f"Converged? {gm.converged_}")
@@ -136,8 +153,9 @@ def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, ve
             print(f"BIC: {level_score}, selecting index {best_index}")
         gms.append(level_gm[best_index])
         scores.append(level_score[best_index])
+        bics.append(level_gm[best_index].bic(red_data))
 
-    scores = np.array(scores)
+    #scores = np.array(scores)
     #smoothed = np.polyfit(np.arange(max_clusters), scores, 3)
     #smoothed = scipy.signal.savgol_filter(scores, 4, 3)
     #smoothed_diff2 = scipy.signal.savgol_filter(scores, 4, 3, 2)
@@ -146,21 +164,25 @@ def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, ve
     #print(best_index)
     #best_index = int(best_index)
     # TODO There doesn't seem to be a good systematic way to choose the best one?
-    scoresdiff = scores[1:] - scores[:-1]
-    scoresdiff2 = scoresdiff[1:] - scoresdiff[:-1]
-    best_index = (scoresdiff2 < 0).argmax() + 2
+    #scoresdiff = scores[1:] - scores[:-1]
+    #scoresdiff2 = scoresdiff[1:] - scoresdiff[:-1]
+    #best_index = (scoresdiff2 < 0).argmax() + 2
+    best_index = np.array(bics).argmin()
     if verbose:
-        print(f"Final scores: {scores}, selecting {best_index + 1} components")
-        plt.plot(np.arange(max_clusters) + 1, scores)
-    
-    return gms[best_index]
+        print(f"Final scores: {scores}\nFinal BICs: {bics}\nSelecting {best_index + 1} components")
+        #plt.plot(np.arange(max_clusters) + 1, scores)
+
+    # Refit on original data
+    gm = GaussianMixture(n_components=best_index + 1)
+    gm.fit(data)
+    return gm
 
 
 def get_primary_gaussian_mean(data, max=None, confidence_limit=0.80, how='top'):
     if how == 'all':
-        return winnow_gm_components(data, start=max, confidence_limit=confidence_limit).means_
+        return bic_winnow_gm_components(data).means_
     else:
-        gm = winnow_gm_components(data, start=max, confidence_limit=confidence_limit)
+        gm = bic_winnow_gm_components(data)
         return gm.means_[gm.weights_.argmax(keepdims=True)[0]]
 
 
