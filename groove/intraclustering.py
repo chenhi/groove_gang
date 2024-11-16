@@ -56,6 +56,7 @@ def get_patches(gm, confidence, pts, pca=None, how_reduce='top'):
 
 
 # Algorithm for determining the number of components according to our winnowing criteria: no more than 10% overlaps, and each 95% confidence region should contain 20% of all data points
+# Deprecated in favor of bic_winnow_gm_components
 def winnow_gm_components(data, simulations_per_level=3, confidence_limit=0.80, overlap_allowance = 0.1, cluster_threshold = 0.3, use_weights = False, start = None, verbose=False):
     # Add 1 in case of rounding error
     if start == None:
@@ -114,7 +115,7 @@ def winnow_gm_components(data, simulations_per_level=3, confidence_limit=0.80, o
     return gm
 
 
-def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, verbose=False):
+def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, pca_variance_threshold = .95, verbose=False):
     
     # Maximum clusters cannot exceed number of samples
     max_clusters = min(max_clusters, data.shape[0])
@@ -128,15 +129,16 @@ def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, ve
         axs[0].plot(range(1, n_features+1), total_pca.explained_variance_)
         axs[1].plot(range(1, n_features+1), np.cumsum(total_pca.explained_variance_ratio_))
 
-    pca_cutoff = (np.cumsum(total_pca.explained_variance_ratio_) > .95).argmax() + 1
+    pca_cutoff = (np.cumsum(total_pca.explained_variance_ratio_) > pca_variance_threshold).argmax() + 1
 
     pca = PCA(n_components=pca_cutoff)
     pca.fit(data)
     red_data = pca.transform(data)
 
-
+    # Now, on reduced data:
+    # for each number of clusters, fit Gaussian mixture max_clusters times and pick the best fit
+    # between number of clusters, pick model with best BIC
     gms = []
-    scores = []
     bics = []
     for i in range(max_clusters):
         level_gm = []
@@ -155,25 +157,11 @@ def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, ve
         if verbose:
             print(f"BIC: {level_score}, selecting index {best_index}")
         gms.append(level_gm[best_index])
-        scores.append(level_score[best_index])
         bics.append(level_gm[best_index].bic(red_data))
 
-    #scores = np.array(scores)
-    #smoothed = np.polyfit(np.arange(max_clusters), scores, 3)
-    #smoothed = scipy.signal.savgol_filter(scores, 4, 3)
-    #smoothed_diff2 = scipy.signal.savgol_filter(scores, 4, 3, 2)
-    #smoothed = np.polyfit(np.arange(max_clusters), scores, 3)
-    #best_index = smoothed[1]/smoothed[0]
-    #print(best_index)
-    #best_index = int(best_index)
-    # TODO There doesn't seem to be a good systematic way to choose the best one?
-    #scoresdiff = scores[1:] - scores[:-1]
-    #scoresdiff2 = scoresdiff[1:] - scoresdiff[:-1]
-    #best_index = (scoresdiff2 < 0).argmax() + 2
     best_index = np.array(bics).argmin()
     if verbose:
-        print(f"Final scores: {scores}\nFinal BICs: {bics}\nSelecting {best_index + 1} components")
-        #plt.plot(np.arange(max_clusters) + 1, scores)
+        print(f"Final BICs: {bics}\nSelecting {best_index + 1} components")
 
     # Refit on original data
     gm = GaussianMixture(n_components=best_index + 1)
@@ -181,15 +169,16 @@ def bic_winnow_gm_components(data, max_clusters = 5, simulations_per_level=3, ve
     return gm
 
 
-def get_primary_gaussian_mean(data, max=None, confidence_limit=0.80, how='top'):
+# how indicates whether to return only the top cluster or all clusters
+def get_primary_gaussian_mean(data, how='top', max_clusters=5, simulations_per_level=3, pca_variance_threshold=.95):
+    gm = bic_winnow_gm_components(data, max_clusters=max_clusters, simulations_per_level=simulations_per_level, pca_variance_threshold=pca_variance_threshold)
     if how == 'all':
-        return bic_winnow_gm_components(data).means_
+        return gm.means_
     else:
-        gm = bic_winnow_gm_components(data)
         return gm.means_[gm.weights_.argmax(keepdims=True)[0]]
 
 
-
+# Finds the closest data point to the given means
 def find_closest_indices(means, data):
     outs = []
     for i in range(means.shape[0]):

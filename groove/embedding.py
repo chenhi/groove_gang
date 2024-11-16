@@ -133,7 +133,7 @@ def bar_embedding_freq(samples,proc, dbeats,bar_num,subdivisions,
     # print(kernel.shape)
 
 
-    # power = groove.downbeats.smooth_power(samples, framerate)
+    # power = smooth_power(samples, framerate)
     
     
     sub_beat_data = [0]*(subdivisions * 3) # we do not want to count down beat twice
@@ -164,7 +164,7 @@ def get_freq_segmented_powers(samples, framerate, locut=200, midrange=[400,5000]
     lo_samples = butter_lowpass_filter(samples, locut, framerate)
     mid_samples = butter_bandpass_filter(samples, *midrange, framerate)
     hi_samples = butter_hipass_filter(samples, hicut, framerate)
-    return list(map(lambda s: groove.downbeats.smooth_power(s, framerate), 
+    return list(map(lambda s: smooth_power(s, framerate), 
                                         [lo_samples, mid_samples, hi_samples]))
 
 

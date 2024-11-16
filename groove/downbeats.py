@@ -58,26 +58,6 @@ def get_beat_frames(proc_measures: list[np.ndarray], sr: int, beat_find: Callabl
 
 
 
-
-
-
-# Processing functions
-def smooth_power(y, sr):
-    power_db = y**2
-    return savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=2, deriv=0, mode='constant')
-
-def log_smooth_power(y, sr):
-    power_db = y**2
-    return np.log10(.0001 + savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=2, deriv=0,mode='constant'))
-
-def smooth_power2(y, sr):
-    power_db = y**2
-    d2 = savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=3, deriv=2, mode='constant') ** 2
-    return d2/d2.max()
-
-
-
-
 # Beat finding functions
 def max_pool(x, k):
     x = np.append(x, np.zeros(x.shape[0]//k * k + k - x.shape[0]))
