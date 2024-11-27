@@ -8,9 +8,13 @@ import librosa
 
 
 # Processing functions
-def smooth_power(y, sr, axis=-1):
+def smooth_power(y, sr, window=.01, axis=-1):
     power_db = y**2
-    return savgol_filter(power_db, sr*0.01, delta=1/sr, polyorder=2, deriv=0, mode='constant', axis=axis)
+    return savgol_filter(power_db, sr*window, delta=1/sr, polyorder=2, deriv=0, mode='constant', axis=axis)
+
+def smooth_power_deriv(y, sr, window=.01, axis=-1, deriv=1):
+    power_db = y**2
+    return savgol_filter(power_db, sr*window, delta=1/sr, polyorder=3, deriv=deriv, mode='constant', axis=axis)
 
 def log_smooth_power(y, sr):
     power_db = y**2
@@ -100,7 +104,8 @@ def bar_embedding(data,dbeats,bar_num,dimension,framerate,kernel=None, kernel_wi
 # bar_num is the measure to process
 # dimension is the number of divisions of the bar
 def bar_embedding_freq(samples,proc, dbeats,bar_num,subdivisions,
-                  framerate: float,kernel=None, kernel_width=None, square=True):
+                  framerate: float,kernel=None, kernel_width=None, 
+                  square=True):
     """_summary_
 
     Args:
@@ -143,7 +148,7 @@ def bar_embedding_freq(samples,proc, dbeats,bar_num,subdivisions,
         start = int(sub_beats[i]-sub_beat_interval)
         end = int(sub_beats[i]+sub_beat_interval)
 
-        powers_segs = list(map(lambda pow: pad_with_zeros(pow, start, end, sub_beat_interval), proc))
+        powers_segs = list(map(lambda pow: pad_with_zeros(pow, start, end, sub_beat_interval), proc.T))
         
         for j in range(len(powers_segs)):
             sub_beat_data[i + j] = np.sum(kernel*(powers_segs[j]))
@@ -164,8 +169,19 @@ def get_freq_segmented_powers(samples, framerate, locut=200, midrange=[400,5000]
     lo_samples = butter_lowpass_filter(samples, locut, framerate)
     mid_samples = butter_bandpass_filter(samples, *midrange, framerate)
     hi_samples = butter_hipass_filter(samples, hicut, framerate)
-    return list(map(lambda s: smooth_power(s, framerate), 
-                                        [lo_samples, mid_samples, hi_samples]))
+    return np.stack(list(map(lambda s: smooth_power(s, framerate), 
+                                        [lo_samples, mid_samples, hi_samples]))).T
+
+
+def get_freq_segmented_transience(samples, framerate, 
+                                  locut=200, midrange=[400,5000], hicut=5000,
+                                  window=0.05):
+    lo_samples = butter_lowpass_filter(samples, locut, framerate)
+    mid_samples = butter_bandpass_filter(samples, *midrange, framerate)
+    hi_samples = butter_hipass_filter(samples, hicut, framerate)
+    return np.stack(list(map(lambda s: np.clip(smooth_power_deriv(s, framerate, window=window),
+                                      0, None), 
+                                        [lo_samples, mid_samples, hi_samples]))).T
 
 
 def get_freq_segmented_powers_stacked(samples, framerate, locut=200, midrange=[400,5000], hicut=5000, axis=0):
