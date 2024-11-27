@@ -47,6 +47,9 @@ def butter_bandpass_filter(data, locut, hicut, fs, order=5):
           butter_hipass_filter(data, hicut, fs, order),
                                      locut, fs, order)
 
+
+
+
 # data is raw data
 # dbeats is something like bn[[bn[:,1] == 1, 0] where bn is output of beatnet
 # bar_num is the measure to process
@@ -259,8 +262,14 @@ def get_freq_segmented(samples, framerate, locut=200, midrange=[400,5000], hicut
     hi_samples = butter_hipass_filter(samples, hicut, framerate)
     return np.concatenate([lo_samples, mid_samples, hi_samples], axis=0)
 
+
+
 def segmented_smooth_power(y, sr):
     return smooth_power(get_freq_segmented(y, sr), sr)
+
+def segmented_smooth_power_deriv(y, sr):
+    return smooth_power_deriv(get_freq_segmented(y, sr), sr)
+
 
 # divisions is list of bar subdivisions
 # If kernel width is in (0, 1) then interpret it as a fraction of interval
