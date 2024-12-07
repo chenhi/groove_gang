@@ -1,0 +1,62 @@
+\documentclass{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+
+\begin{document}
+
+\author{Duncan Wood, Harrison Chen, Utkarsh Agrawal}
+
+\title{Executive Summary: The Embedder's New Groove}
+\maketitle
+
+Our project focuses on developing a method to encode and analyze the rhythmic content of musical recordings. The primary objective is to create an embedding that captures the nuances of musical grooves---patterns of rhythm and timing---using classical signal processing and clustering techniques. This encoding enables objective comparisons across and within musical genres, in hopes of discovering new musical insights, and applications in music recommendation engines.
+
+\subsection*{Objectives}
+\begin{itemize}
+    \item \textbf{Rhythm Classification:} Use unsupervised methods to identify and group distinct rhythmic patterns (e.g., samba, swing, EDM).
+    \item \textbf{Encoding Grooves:} Develop a representation that encapsulates timing, emphasis, and other subtle rhythmic features.
+    \item \textbf{Generative Applications:} Extend the embedding to enable groove transformation, such as altering a recording’s style.
+\end{itemize}
+
+\subsection*{Potential Applications}
+\begin{itemize}
+    \item Analyzing rhythmic trends in popular music over time.
+    \item Auto-DJ systems for rhythmically similar track selection.
+    \item Tools for music producers to generate and manipulate grooves.
+    \item Applications in copyright detection and music recommendation systems.
+\end{itemize}
+
+\subsection*{Stakeholders}
+This work is relevant to the music industry, including producers, content creators, streaming services, and event planners.
+
+\subsection*{Methodology}
+\begin{enumerate}
+    \item \textbf{Downbeat Detection:} Tools like BeatNet were used to identify beat locations, which segment the music into measures. However, poor accuracy ($\sim$50\%) limits scalability.
+    \item \textbf{Groove Embedding:}
+    \begin{itemize}
+        \item Divide measures into frequency bands (low, mid, high).
+        \item Process signal power data and integrate over time subdivisions.
+        \item Represent each measure with a high-dimensional vector reduced via PCA for clustering.
+    \end{itemize}
+    \item \textbf{Clustering:} Employ Gaussian mixture models to identify representative rhythms within and across recordings.
+\end{enumerate}
+
+\subsection*{Results}
+\begin{itemize}
+    \item The embedding captures within-song rhythmic variations and representative measures.
+    \item Initial tests demonstrated clustering potential within individual songs but struggled to distinguish broader genres due to inaccuracies in beat detection.
+\end{itemize}
+
+\subsection*{Challenges and Next Steps}
+\begin{enumerate}
+    \item \textbf{Improving Beat Detection:} Develop improved techniques or leverage better-labeled datasets to refine downbeat accuracy.
+    \item \textbf{Instrument Differentiation:} Enhance the encoding to differentiate between rhythmic components (e.g., bass drum, snare, hi hats).
+    \item \textbf{Microtiming Analysis:} Implement methods to analyze small timing variations relative to a perfect rhythmic grid, a key feature for understanding stylistic nuances in grooves.
+    \item \textbf{Genre-Level Insights:} Train algorithms to recognize families of grooves across genres, addressing the limitations of Euclidean clustering.
+\end{enumerate}
+
+
+
+
+
+\end{document}

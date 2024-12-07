@@ -26,10 +26,11 @@ def get_downbeats(file: str, database='data/beatnet_data.pkl'):
 
 
 # Loads file audio and BeatNet data, slices into measures, processes and then returns
-def get_measures(file: str, process: Callable, ext="mp3"):
+def get_measures(file: str, process: Callable, ext="mp3", beat_data=None):
 
     # Get BeatNet output
-    beat_data = get_beat_data(file)
+    if beat_data is None:
+        beat_data = get_beat_data(file)
 
     # Get raw audio data
     y, y_proc, sr = get_audio_data(file, process, ext)
