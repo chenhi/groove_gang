@@ -9,6 +9,7 @@
 * groove/downbeats.py contains functions used to extract the downbeats from audio data, downbeats_demo.ipynb is a demo
 * groove/intraclustering.py contains clustering functions used to extract "primary" beats from songs (needs a good embedding for good results)
 * groove/embedding.py contains implementation of some embeddings
+* files beginning with "demo" for demonstration of code, files beginning with "test" for testing (can be ignored)
 
 ## Data:
 * data/beatnet_data.pkl is a dictionary containing BeatNet outputs for some songs
